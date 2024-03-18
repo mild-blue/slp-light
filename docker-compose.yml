@@ -1,0 +1,79 @@
+services:
+  db:
+    image: postgres:15.2
+    container_name: slp_light_db
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=Your_password123
+      - POSTGRES_DB=slp
+    ports:
+      - "5432:5432"
+    restart: "no"
+  
+  postgresql:
+    image: postgres:12-alpine #do not update, authentik bugs out on ARM with newer versions
+    container_name: slp_authentik_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    environment:
+      POSTGRES_PASSWORD: Your_password123
+      POSTGRES_USER: authentik
+      POSTGRES_DB: authentik
+    restart: "no"
+  
+  redis:
+    image: docker.io/library/redis:alpine
+    container_name: slp_authentik_redis
+    command: --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    restart: "no"
+  
+  server:
+    image: ghcr.io/goauthentik/server:2023.8.7
+    container_name: slp_authentik_server
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: Your_password123
+      AUTHENTIK_BOOTSTRAP_EMAIL: "admin@mild.blue"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "admin"
+      AUTHENTIK_SECRET_KEY: DdP75bZYo8eOfHyCUL2bL5dFX5O5WQy6p5afJrASFpk6hlWW3c
+      AUTHENTIK_BOOTSTRAP_TOKEN: LHDXJc2o55Zed6YP5Wd57CUpSLOr36AOypbhfQW5Fylb8kaFfW
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    depends_on:
+      - postgresql
+      - redis
+    restart: "no"
+  
+  worker:
+    image: ghcr.io/goauthentik/server:2023.8.7
+    container_name: slp_authentik_worker
+    command: worker
+    environment:
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: Your_password123
+      AUTHENTIK_BOOTSTRAP_EMAIL: "admin@mild.blue"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "admin"
+      AUTHENTIK_SECRET_KEY: DdP75bZYo8eOfHyCUL2bL5dFX5O5WQy6p5afJrASFpk6hlWW3c
+      AUTHENTIK_BOOTSTRAP_TOKEN: LHDXJc2o55Zed6YP5Wd57CUpSLOr36AOypbhfQW5Fylb8kaFfW
+    depends_on:
+      - postgresql
+      - redis
+    restart: "no"
