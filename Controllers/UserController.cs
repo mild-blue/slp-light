@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using slp.light.Model;
+using Microsoft.EntityFrameworkCore;
+using slp.light.DTO;
+using slp.light.Interfaces;
 
 namespace slp.light.Controllers
 {
@@ -15,9 +17,15 @@ namespace slp.light.Controllers
         }
 
         [HttpGet]
-        public IEnumerable<User> Get()
+        public async Task<IEnumerable<UserOutDto>> Get([FromServices] IAppDbContext dbContext)
         {
-            return Array.Empty<User>();
+            var mapper = MapperConfig.InitializeAutomapper();
+
+            var users = dbContext.Users;
+
+            return await mapper
+                .ProjectTo<UserOutDto>(users, parameters: null)
+                .ToListAsync();
         }
     }
 }
